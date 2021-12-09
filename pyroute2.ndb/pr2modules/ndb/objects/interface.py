@@ -323,8 +323,8 @@ class Vlan(RTNL_Object):
         kwarg['iclass'] = ifinfmsg.af_spec_bridge.vlan_info
         if 'auth_managers' not in kwarg or kwarg['auth_managers'] is None:
             kwarg['auth_managers'] = []
-        log = argv[0].ndb.log.channel('vlan auth')
-        kwarg['auth_managers'].append(AuthManager({'obj:modify': False}, log))
+        # log = argv[0].ndb.log.channel('vlan auth')
+        # kwarg['auth_managers'].append(AuthManager({'obj:modify': False}, log))
         super(Vlan, self).__init__(*argv, **kwarg)
 
     def make_req(self, prime):
@@ -338,6 +338,32 @@ class Vlan(RTNL_Object):
 
     def make_idx_req(self, prime):
         return self.make_req(prime)
+
+    @staticmethod
+    def spec_normalize(spec):
+        '''
+        Interface key normalization::
+
+            { ... }  ->  { ... }
+            "eth0"   ->  {"ifname": "eth0", ...}
+            1        ->  {"vid": 1, ...}
+
+        '''
+        if isinstance(spec, dict):
+            ret = dict(spec)
+        else:
+            ret = {}
+        if isinstance(spec, basestring):
+            ret['ifname'] = spec
+        elif isinstance(spec, int):
+            ret['vid'] = spec
+        #
+        # # fix the master interface reference
+        # for key in ('vxlan_link', 'link', 'master'):
+        #     if isinstance(ret.get(key), dict):
+        #         ret[key] = ret[key]['index']
+
+        return ret
 
 
 class Interface(RTNL_Object):
@@ -461,7 +487,7 @@ class Interface(RTNL_Object):
     def add_vlan(self, spec):
         def do_add_vlan(self, spec):
             try:
-                self.vlan.create(spec).apply()
+                self.vlans.create(spec).apply()
                 return []
             except Exception as e_s:
                 e_s.trace = traceback.format_stack()
@@ -473,7 +499,7 @@ class Interface(RTNL_Object):
     def del_vlan(self, spec):
         def do_del_vlan(self, spec):
             try:
-                ret = self.vlan[spec].remove().apply()
+                ret = self.vlans[spec].remove().apply()
                 return [ret.last_save]
             except Exception as e_s:
                 e_s.trace = traceback.format_stack()
